@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.jpeg" alt="Ol_Utills Logo" width="300" />
+  <img src="https://github.com/OverLimit-OL/Ol_Utills/blob/main/logo.jpeg?raw=true" alt="Ol_Utills Logo" width="300" />
   <h1 align="center">🛠️ Ol_Utills</h1>
   <p align="center">
     A lightweight Flask utility library for validation, authentication, and database helpers.

@@ -58,3 +58,8 @@ class database:
         conn = sqlite3.connect(database)
         db = conn.cursor()
         return db
+
+    def postgresql(database, user, password, host):
+        conn = psycopg2.connect(database=database, user=user, password=password, host=host)
+        db = conn.cursor()
+        return db

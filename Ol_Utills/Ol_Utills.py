@@ -28,6 +28,7 @@ class val:
             return True
 
 class res:
+    # Standardized response format for API responses
     def success_response(data):
         pass
 
@@ -36,30 +37,34 @@ class res:
 
 class req:
     def login_required(func):
+        # Decorator to check if the user is logged in before allowing access to a route
         def login_wrapper(*args, **kwargs):
             if session.get('logged') == True:
                 result = func(*args, **kwargs)
                 return result
             else:
-                return jsonify()
+                return jsonify('Unauthorized'), 401
         return login_wrapper
 
     def admin_required(func):
+        # Decorator to check if the user is an admin before allowing access to a route
         def admin_wrapper(*args, **kwargs):
             if session.get('admin') == True:
                 result = func(*args, **kwargs)
                 return result
             else:
-                return jsonify()
+                return jsonify('Unauthorized'), 401
         return admin_wrapper
 
 class database:
     def sqlite(database):
+        # Connects to a SQLite database and returns a cursor object for executing queries
         conn = sqlite3.connect(database)
         db = conn.cursor()
         return db
 
     def postgresql(database, user, password, host):
+        # Connects to a PostgreSQL database and returns a cursor object for executing queries
         conn = psycopg2.connect(database=database, user=user, password=password, host=host)
         db = conn.cursor()
         return db

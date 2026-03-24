@@ -11,12 +11,12 @@ class val:
         # Checks for password containing at least 1 Upper case, 1 lower case, 1 digit and 1 special character,
         # all together with a length of at least 8. (This pattern allows any order of the requried elements,
         # other than what was been distributed here before)
-        p = re.search(validators.password_regex, password)
+        p = re.search(val.password_regex, password)
         if p:
             return True
     def chk_e(email):
         #Email address compliant with RFC2822
-        e = re.search(validators.email_regex, email)
+        e = re.search(val.email_regex, email)
         if e:
             return True
 

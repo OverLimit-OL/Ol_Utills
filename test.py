@@ -9,4 +9,4 @@ def login(name):
     print(name)
 login('ali')
 
-print(validators.check_e("abdo@gmail.com"))
+print(validators.chk_e("abdo@gmail.com"))

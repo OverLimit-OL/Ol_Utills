@@ -113,14 +113,14 @@ The `val` class provides static methods for validating common user inputs using 
 ```mermaid
 flowchart LR
     Input["📥 User Input"] --> Val{"val method"}
-    Val -->|chk_p| P["Password Regex"]
-    Val -->|chk_e| E["Email Regex"]
-    Val -->|chk_ph| Ph["Phone Regex"]
+    Val -->|"chk_p"| P["Password Regex"]
+    Val -->|"chk_e"| E["Email Regex"]
+    Val -->|"chk_ph"| Ph["Phone Regex"]
     P --> Result{"Match?"}
     E --> Result
     Ph --> Result
-    Result -->|✅ Yes| True["Returns True"]
-    Result -->|❌ No| None["Returns None"]
+    Result -->|"✅ Yes"| True["Returns True"]
+    Result -->|"❌ No"| None["Returns None"]
 
     style Input fill:#f8fafc,stroke:#94a3b8,color:#334155
     style True fill:#22c55e,stroke:#16a34a,color:#fff
@@ -271,8 +271,8 @@ flowchart TD
     A["🌐 Client Request"] --> B["Flask Route"]
     B --> C{"Decorator Check"}
     
-    C -->|@login_required| D{"session logged == True?"}
-    C -->|@admin_required| E{"session admin == True?"}
+    C -->|"@login_required"| D{"session logged == True?"}
+    C -->|"@admin_required"| E{"session admin == True?"}
     
     D -->|"✅ Yes"| F["✅ Execute View Function"]
     D -->|"❌ No"| G["🚫 Return empty jsonify response"]
@@ -431,8 +431,8 @@ The `database` class provides quick-connect helper functions for database setup.
 flowchart LR
     App["🐍 Flask App"] --> DB{"database helper"}
 
-    DB -->|.sqlite| SQ["📁 SQLite File"]
-    DB -->|.postgresql| PG["🐘 PostgreSQL Server"]
+    DB -->|".sqlite"| SQ["📁 SQLite File"]
+    DB -->|".postgresql"| PG["🐘 PostgreSQL Server"]
 
     SQ --> SQC["sqlite3.connect"]
     PG --> PGC["psycopg2.connect"]

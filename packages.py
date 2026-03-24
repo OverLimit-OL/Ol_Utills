@@ -21,6 +21,7 @@ class val:
         if __e:
             return True
     def chk_ph(phone):
+        #Detects most of the phone numbers all over the world
         __ph = re.search(val.phone_regex, phone)
         if __ph:
             return True

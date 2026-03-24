@@ -1,5 +1,7 @@
 from packages import login_required
+from flask import session
 
+session['name'] = 'mohamed'
 
 @login_required
 def login(name):

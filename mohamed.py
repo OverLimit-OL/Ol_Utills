@@ -1,5 +1,6 @@
-from flask import sessions, session
-import json
+from flask import sessions, session, jsonify
+import sqlite3, psycopg2
+import json, os
 
 
 def success_response(data):
@@ -9,19 +10,23 @@ def error_response(message, code):
     pass
 
 def login_required(func):
-    def wrapper(*args, **kwargs):
+    def login_wrapper(*args, **kwargs):
         if session.get('logged') == True:
             result = func(*args, **kwargs)
             return result
         else:
-            return 'shit'
-    return wrapper
+            return jsonify()
+    return login_wrapper
 
 def admin_required(func):
-    def wrapper(*args, **kwargs):
+    def admin_wrapper(*args, **kwargs):
         if session.get('admin') == True:
             result = func(*args, **kwargs)
             return result
         else:
-            return 'shit'
-    return wrapper
+            return jsonify()
+    return admin_wrapper
+
+def sqlite(database):
+    conn = sqlite3.connect(database)
+    db = conn.cursor()

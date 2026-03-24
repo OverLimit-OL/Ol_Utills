@@ -1,3 +1,4 @@
+from flask import sessions
 import json
 import re
 
@@ -28,7 +29,7 @@ def error_response(message, code):
 def login_required(func):
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
-        print(*args)
+        print(session)
     return wrapper
 
 def admin_required(func):

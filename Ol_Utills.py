@@ -63,3 +63,5 @@ class database:
         conn = psycopg2.connect(database=database, user=user, password=password, host=host)
         db = conn.cursor()
         return db
+
+

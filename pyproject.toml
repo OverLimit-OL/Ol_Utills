@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Ol_Utills"
+version = "0.2.0"
+authors = [
+  { name="Ol_Utills", email="overlimit830@gmail.com" },
+]
+description = "A lightweight Flask utility library providing validation, authentication decorators, and database helpers."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/OverLimit-OL/Ol_Utills"
+"Bug Tracker" = "https://github.com/OverLimit-OL/Ol_Utills/issues"

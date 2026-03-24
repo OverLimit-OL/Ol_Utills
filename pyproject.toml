@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Ol_Utills"
-version = "0.2.0"
+version = "0.5.0"
 authors = [
   { name="Ol_Utills", email="overlimit830@gmail.com" },
 ]
@@ -20,3 +20,6 @@ classifiers = [
 [project.urls]
 "Homepage" = "https://github.com/OverLimit-OL/Ol_Utills"
 "Bug Tracker" = "https://github.com/OverLimit-OL/Ol_Utills/issues"
+
+[tool.setuptools]
+packages = ["Ol_Utills"]

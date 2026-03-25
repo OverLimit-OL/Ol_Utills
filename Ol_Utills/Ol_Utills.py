@@ -93,7 +93,7 @@ class req:
             if session.get('logged') == True:
                 return f(*args, **kwargs)
             else:
-                return jsonify({'error': 'Unauthorized'}), 401
+                return res.error_response('Unauthorized', 401)
         return wrapper
     
     @staticmethod
@@ -104,7 +104,7 @@ class req:
             if session.get('admin') == True:
                 return f(*args, **kwargs)
             else:
-                return  jsonify({'error': 'Unauthorized'}), 401
+                return res.error_response('Unauthorized', 401)
         return wrapper
 
 class security:

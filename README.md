@@ -2,7 +2,7 @@
   <img src="https://github.com/OverLimit-OL/Ol_Utills/blob/main/logo.jpeg?raw=true" alt="Ol_Utills Logo" width="300" />
   <h1 align="center">🛠️ Ol_Utills</h1>
   <p align="center">
-    A lightweight Flask utility library for validation, authentication, and database helpers.
+    A lightweight Flask utility library for validation, authentication, security, and database helpers.
   </p>
 </p>
 
@@ -24,7 +24,9 @@
 
 - **Input Validation** — Password, email, and phone number validation using battle-tested regex patterns.
 - **Auth Decorators** — Drop-in `@login_required` and `@admin_required` decorators for Flask routes.
-- **Database Helpers** — Quick-connect utilities for **SQLite** and **PostgreSQL**.
+- **Response Helpers** — Standardized `success_response` and `error_response` for consistent API output.
+- **Security** — Rate limiting (Redis-backed), input/file sanitization, bcrypt password hashing & verification.
+- **Database Helpers** — Quick-connect utilities for **SQLite**, **PostgreSQL**, and **Redis**.
 - **Zero Config** — Works out of the box with any Flask app.
 
 ### 🏗️ Architecture Overview
@@ -34,7 +36,8 @@ graph LR
     A["🛠️ Ol_Utills"] --> B["🔒 val"]
     A --> C["🛡️ req"]
     A --> D["📦 res"]
-    A --> E["🗄️ database"]
+    A --> E["🗄️ Connections"]
+    A --> F["🔐 security"]
 
     B --> B1["chk_p — Password"]
     B --> B2["chk_e — Email"]
@@ -48,12 +51,19 @@ graph LR
 
     E --> E1["SQLite"]
     E --> E2["PostgreSQL"]
+    E --> E3["Redis"]
+
+    F --> F1["@rate_limit"]
+    F --> F2["Sanitizes"]
+    F --> F3["hash"]
+    F --> F4["verify"]
 
     style A fill:#4f46e5,stroke:#4338ca,color:#fff
     style B fill:#0891b2,stroke:#0e7490,color:#fff
     style C fill:#059669,stroke:#047857,color:#fff
     style D fill:#d97706,stroke:#b45309,color:#fff
     style E fill:#7c3aed,stroke:#6d28d9,color:#fff
+    style F fill:#e11d48,stroke:#be123c,color:#fff
 ```
 
 ---
@@ -69,7 +79,9 @@ pip install ol-utills flask
 | Dependency | Purpose                             |
 | ---------- | ----------------------------------- |
 | `flask`    | Session management & JSON responses |
-| `psycopg2` | PostgreSQL connectivity             |
+| `psycopg2` | PostgreSQL connectivity            |
+| `redis`    | Redis connectivity & rate limiting  |
+| `bcrypt`   | Secure password hashing             |
 
 > **Note:** `sqlite3` and `re` are part of the Python standard library and do not need to be installed.
 
@@ -82,15 +94,19 @@ pip install ol-utills flask
 ## 🚀 Quick Start
 
 ```python
-from Ol_Utills import val, req, database
+from Ol_Utills import val, req, res, Connections, security
 
 # Validate an email
 if val.chk_e("user@example.com"):
     print("Valid email!")
 
 # Connect to a SQLite database
-db = database.sqlite("app.db")
+conn, db = Connections.sqlite("app.db")
 db.execute("SELECT * FROM users")
+
+# Hash a password
+hashed = security.hash("MySecureP@ss1")
+print(security.verify("MySecureP@ss1", hashed))  # True
 ```
 
 ---
@@ -102,8 +118,9 @@ db.execute("SELECT * FROM users")
 1. [val — Validation](#val--validation)
 2. [req — Authentication Decorators](#req--authentication-decorators)
 3. [res — Response Helpers](#res--response-helpers)
-4. [database — Database Connections](#database--database-connections)
-5. [Full Flask App Example](#-full-flask-app-example)
+4. [Connections — Database Connections](#connections--database-connections)
+5. [security — Security Utilities](#security--security-utilities)
+6. [Full Flask App Example](#-full-flask-app-example)
 
 ---
 
@@ -278,7 +295,7 @@ flowchart TD
     C -->|"@admin_required"| E{"session admin == True?"}
 
     D -->|"✅ Yes"| F["✅ Execute View Function"]
-    D -->|"❌ No"| G["🚫 Return empty jsonify response"]
+    D -->|"❌ No"| G["🚫 Return 401 error_response"]
 
     E -->|"✅ Yes"| F
     E -->|"❌ No"| G
@@ -298,12 +315,12 @@ flowchart TD
 
 Restricts a Flask route to authenticated (logged-in) users only.
 
-|                    | Details                                        |
-| ------------------ | ---------------------------------------------- |
-| **Session Key**    | `session['logged']`                            |
-| **Required Value** | `True` (boolean)                               |
-| **On Success**     | Executes the decorated view function normally  |
-| **On Failure**     | Returns an empty JSON response via `jsonify()` |
+|                    | Details                                                   |
+| ------------------ | --------------------------------------------------------- |
+| **Session Key**    | `session['logged']`                                       |
+| **Required Value** | `True` (boolean)                                          |
+| **On Success**     | Executes the decorated view function normally             |
+| **On Failure**     | Returns `res.error_response('Unauthorized', 401)` |
 
 **Prerequisites:**
 
@@ -345,11 +362,11 @@ def logout():
 
 **Behavior:**
 
-| Scenario              | `session['logged']` | Result                             |
-| --------------------- | ------------------- | ---------------------------------- |
-| User is logged in     | `True`              | View function runs normally        |
-| User is not logged in | Missing or `False`  | Returns empty `jsonify()` response |
-| Session expired       | Missing             | Returns empty `jsonify()` response |
+| Scenario              | `session['logged']` | Result                                   |
+| --------------------- | ------------------- | ---------------------------------------- |
+| User is logged in     | `True`              | View function runs normally              |
+| User is not logged in | Missing or `False`  | Returns `error_response('Unauthorized', 401)` |
+| Session expired       | Missing             | Returns `error_response('Unauthorized', 401)` |
 
 ---
 
@@ -357,12 +374,12 @@ def logout():
 
 Restricts a Flask route to admin users only. Works the same as `@login_required` but checks a different session key.
 
-|                    | Details                                        |
-| ------------------ | ---------------------------------------------- |
-| **Session Key**    | `session['admin']`                             |
-| **Required Value** | `True` (boolean)                               |
-| **On Success**     | Executes the decorated view function normally  |
-| **On Failure**     | Returns an empty JSON response via `jsonify()` |
+|                    | Details                                                   |
+| ------------------ | --------------------------------------------------------- |
+| **Session Key**    | `session['admin']`                                        |
+| **Required Value** | `True` (boolean)                                          |
+| **On Success**     | Executes the decorated view function normally             |
+| **On Failure**     | Returns `res.error_response('Unauthorized', 401)` |
 
 **Example:**
 
@@ -401,74 +418,111 @@ def admin_settings():
 
 ### `res` — Response Helpers
 
-> 🔜 **Coming Soon** — This module is under active development.
+The `res` class provides utilities for building standardized JSON API responses, ensuring a consistent format across all your endpoints.
 
-The `res` class will provide utilities for building standardized JSON API responses.
+---
 
-| Method                              | Description                                  | Status     |
-| ----------------------------------- | -------------------------------------------- | ---------- |
-| `res.success_response(data)`        | Returns a standardized success JSON response | 🔜 Planned |
-| `res.error_response(message, code)` | Returns a standardized error JSON response   | 🔜 Planned |
+#### `res.success_response(data)`
 
-**Planned usage:**
+Returns a standardized success JSON response with HTTP status `200`.
+
+|               | Details                                             |
+| ------------- | --------------------------------------------------- |
+| **Parameter** | `data` _(any)_ — The data payload to include        |
+| **Returns**   | `(jsonify({'data': data}), 200)` — Flask response tuple |
+
+**Example:**
 
 ```python
 from Ol_Utills import res
 
-# Success response
-return res.success_response({"user": "john"})
-# Expected: {"status": "success", "data": {"user": "john"}}
-
-# Error response
-return res.error_response("Not found", 404)
-# Expected: {"status": "error", "message": "Not found"}, 404
+# In a Flask route
+@app.route('/users')
+def get_users():
+    users = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+    return res.success_response(users)
+    # Response: {"data": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]}, 200
 ```
 
 ---
 
-### `database` — Database Connections
+#### `res.error_response(message, code)`
 
-The `database` class provides quick-connect helper functions for database setup. Each method opens a connection and returns a **cursor** object ready for executing queries.
+Returns a standardized error JSON response with a custom HTTP status code.
+
+|               | Details                                                    |
+| ------------- | ---------------------------------------------------------- |
+| **Parameters** | `message` _(str)_ — Error message to return               |
+|               | `code` _(int)_ — HTTP status code (e.g. `400`, `404`, `500`) |
+| **Returns**   | `(jsonify({'error': message}), code)` — Flask response tuple |
+
+**Example:**
+
+```python
+from Ol_Utills import res
+
+@app.route('/users/<int:user_id>')
+def get_user(user_id):
+    user = find_user(user_id)
+    if not user:
+        return res.error_response("User not found", 404)
+        # Response: {"error": "User not found"}, 404
+    return res.success_response(user)
+```
+
+---
+
+### `Connections` — Database Connections
+
+The `Connections` class provides quick-connect helper functions for database setup. Each method opens a connection and returns a **(connection, cursor)** tuple.
 
 ```mermaid
 flowchart LR
-    App["🐍 Flask App"] --> DB{"database helper"}
+    App["🐍 Flask App"] --> DB{"Connections helper"}
 
     DB -->|".sqlite"| SQ["📁 SQLite File"]
     DB -->|".postgresql"| PG["🐘 PostgreSQL Server"]
+    DB -->|".C_redis"| RD["🔴 Redis Server"]
 
     SQ --> SQC["sqlite3.connect"]
     PG --> PGC["psycopg2.connect"]
+    RD --> RDC["redis.Redis"]
 
-    SQC --> Cursor["📋 Cursor"]
-    PGC --> Cursor
+    SQC --> Tuple["📋 (conn, cursor)"]
+    PGC --> Tuple
+    RDC --> Client["📋 Redis client"]
 
-    Cursor --> Ops["execute / fetchall / fetchone"]
+    Tuple --> Ops["execute / fetchall / fetchone / commit"]
+    Client --> ROps["get / set / incr / expire"]
 
     style App fill:#f8fafc,stroke:#94a3b8,color:#334155
     style SQ fill:#0891b2,stroke:#0e7490,color:#fff
     style PG fill:#4f46e5,stroke:#4338ca,color:#fff
-    style Cursor fill:#22c55e,stroke:#16a34a,color:#fff
+    style RD fill:#dc2626,stroke:#b91c1c,color:#fff
+    style Tuple fill:#22c55e,stroke:#16a34a,color:#fff
+    style Client fill:#22c55e,stroke:#16a34a,color:#fff
 ```
+
+> **Important:** `Connections.sqlite()` and `Connections.postgresql()` now return a **(connection, cursor)** tuple instead of just a cursor. Use `conn` for `commit()` / `close()`, and `db` for queries.
 
 ---
 
-#### `database.sqlite(database)`
+#### `Connections.sqlite(database)`
 
-Opens a connection to a **SQLite** database file and returns a cursor.
+Opens a connection to a **SQLite** database file and returns a `(connection, cursor)` tuple.
 
 |               | Details                                                                                                                |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | **Parameter** | `database` _(str)_ — Path to the SQLite database file. If the file doesn't exist, SQLite will create it automatically. |
-| **Returns**   | `sqlite3.Cursor` — A cursor object for executing SQL queries                                                           |
+| **Returns**   | `(sqlite3.Connection, sqlite3.Cursor)` — A tuple of connection and cursor objects                                      |
 
 **Examples:**
 
 ```python
-from Ol_Utills import database
+from Ol_Utills import Connections
 
 # Connect to (or create) a database
-db = database.sqlite("app.db")
+conn, db = Connections.sqlite("app.db")
 
 # Create a table
 db.execute("""
@@ -479,13 +533,14 @@ db.execute("""
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 """)
+conn.commit()  # Use conn for commit
 
 # Insert a record
 db.execute(
     "INSERT INTO users (username, email) VALUES (?, ?)",
     ("john_doe", "john@example.com")
 )
-db.connection.commit()  # Don't forget to commit!
+conn.commit()
 
 # Query records
 db.execute("SELECT * FROM users")
@@ -493,54 +548,33 @@ users = db.fetchall()
 for user in users:
     print(user)
 
-# Query a single record
-db.execute("SELECT * FROM users WHERE username = ?", ("john_doe",))
-user = db.fetchone()
-```
-
-**Use with Flask:**
-
-```python
-from flask import Flask, g
-from Ol_Utills import database
-
-app = Flask(__name__)
-
-def get_db():
-    if 'db' not in g:
-        g.db = database.sqlite("app.db")
-    return g.db
-
-@app.route('/users')
-def list_users():
-    db = get_db()
-    db.execute("SELECT * FROM users")
-    return jsonify(db.fetchall())
+# Close when done
+conn.close()
 ```
 
 ---
 
-#### `database.postgresql(database, user, password, host)`
+#### `Connections.postgresql(database, user, password, host)`
 
-Opens a connection to a **PostgreSQL** database and returns a cursor.
+Opens a connection to a **PostgreSQL** database and returns a `(connection, cursor)` tuple.
 
 |                    | Details                                                        |
 | ------------------ | -------------------------------------------------------------- |
 | **Parameters**     |                                                                |
-| `database` _(str)_ | Name of the PostgreSQL database                                |
-| `user` _(str)_     | Database username                                              |
-| `password` _(str)_ | Database password                                              |
+| `database` _(str)_ | Name of the PostgreSQL database                               |
+| `user` _(str)_     | Database username                                             |
+| `password` _(str)_ | Database password                                             |
 | `host` _(str)_     | Database host address (e.g. `"localhost"`, `"db.example.com"`) |
-| **Returns**        | `psycopg2.cursor` — A cursor object for executing SQL queries  |
-| **Requires**       | `psycopg2` package (`pip install psycopg2-binary`)             |
+| **Returns**        | `(psycopg2.Connection, psycopg2.Cursor)` — A tuple of connection and cursor objects |
+| **Requires**       | `psycopg2` package (`pip install psycopg2-binary`)            |
 
 **Examples:**
 
 ```python
-from Ol_Utills import database
+from Ol_Utills import Connections
 
 # Connect to PostgreSQL
-db = database.postgresql(
+conn, db = Connections.postgresql(
     database="myapp",
     user="admin",
     password="secure_password",
@@ -556,14 +590,14 @@ db.execute("""
         in_stock BOOLEAN DEFAULT TRUE
     )
 """)
-db.connection.commit()
+conn.commit()
 
 # Insert a record
 db.execute(
     "INSERT INTO products (name, price) VALUES (%s, %s)",
     ("Widget", 19.99)
 )
-db.connection.commit()
+conn.commit()
 
 # Query records
 db.execute("SELECT * FROM products WHERE in_stock = %s", (True,))
@@ -571,6 +605,236 @@ products = db.fetchall()
 ```
 
 > **Important:** PostgreSQL uses `%s` for parameter placeholders, while SQLite uses `?`.
+
+---
+
+#### `Connections.C_redis(host, port, password, socket_timeout)`
+
+Creates a connection to a **Redis** server and returns a Redis client instance.
+
+|                            | Details                                                     |
+| -------------------------- | ----------------------------------------------------------- |
+| **Parameters**             |                                                             |
+| `host` _(str)_             | Redis server host (default: `"localhost"`)                  |
+| `port` _(int)_             | Redis server port (default: `6379`)                         |
+| `password` _(str or None)_ | Redis password (default: `None`)                            |
+| `socket_timeout` _(int)_   | Connection timeout in seconds (default: `5`)                |
+| **Returns**                | `redis.Redis` client instance (with `decode_responses=True`) |
+| **Requires**               | `redis` package (`pip install redis`)                       |
+
+**Examples:**
+
+```python
+from Ol_Utills import Connections
+
+# Connect to Redis with defaults
+r = Connections.C_redis()
+
+# Connect with custom settings
+r = Connections.C_redis(
+    host="redis.example.com",
+    port=6380,
+    password="my_redis_pass",
+    socket_timeout=10
+)
+
+# Use the Redis client
+r.set("greeting", "hello")
+print(r.get("greeting"))  # "hello"
+
+r.incr("counter")
+print(r.get("counter"))   # "1"
+```
+
+---
+
+### `security` — Security Utilities
+
+The `security` class provides essential security tools: Redis-backed rate limiting, input/file sanitization, and bcrypt password hashing with verification.
+
+```mermaid
+graph LR
+    S["🔐 security"] --> RL["@rate_limit"]
+    S --> SN["Sanitizes"]
+    S --> HS["hash"]
+    S --> VR["verify"]
+
+    RL --> RL1["Redis-backed"]
+    RL --> RL2["Per-IP tracking"]
+    RL --> RL3["429 on exceed"]
+
+    SN --> SN1["File sanitization"]
+    SN --> SN2["Text sanitization"]
+
+    HS --> HS1["bcrypt hashing"]
+    VR --> VR1["bcrypt verification"]
+
+    style S fill:#e11d48,stroke:#be123c,color:#fff
+    style RL fill:#f97316,stroke:#ea580c,color:#fff
+    style SN fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    style HS fill:#0891b2,stroke:#0e7490,color:#fff
+    style VR fill:#059669,stroke:#047857,color:#fff
+```
+
+---
+
+#### `@security.rate_limit(max_requests, window_seconds, r)`
+
+A decorator that adds Redis-backed rate limiting to Flask routes. Tracks requests per client IP address.
+
+|                               | Details                                                              |
+| ----------------------------- | -------------------------------------------------------------------- |
+| **Parameters**                |                                                                      |
+| `max_requests` _(int)_        | Maximum allowed requests per window (default: `20`)                  |
+| `window_seconds` _(int)_      | Time window in seconds (default: `60`)                               |
+| `r` _(Redis client or None)_ | Optional Redis client; auto-connects via `Connections.C_redis()` if `None` |
+| **On Limit Exceeded**         | Returns `429 Too Many Requests` JSON response                       |
+| **Requires**                  | A running Redis server                                               |
+
+**Example:**
+
+```python
+from flask import Flask
+from Ol_Utills import security, Connections
+
+app = Flask(__name__)
+
+# Using default settings (20 requests per 60 seconds, auto Redis connection)
+@app.route('/api/data')
+@security.rate_limit()
+def get_data():
+    return {"data": "some data"}
+
+# Custom limits with explicit Redis connection
+r = Connections.C_redis(host="redis.example.com")
+
+@app.route('/api/sensitive')
+@security.rate_limit(max_requests=5, window_seconds=30, r=r)
+def sensitive_endpoint():
+    return {"data": "sensitive data"}
+```
+
+**How It Works:**
+
+| Step | Action |
+| ---- | ------ |
+| 1    | Client IP is extracted from the request |
+| 2    | A Redis counter for that IP is incremented |
+| 3    | On first request, a TTL (time-to-live) is set on the key |
+| 4    | If the counter exceeds `max_requests`, a `429` response is returned |
+| 5    | After the window expires, the counter resets automatically |
+
+> **Note:** If Redis is unavailable, the decorator gracefully falls through and allows the request.
+
+---
+
+#### `security.Sanitizes(type, file, text)`
+
+Strips HTML tags from files or text input to prevent XSS and injection attacks.
+
+|               | Details                                                                   |
+| ------------- | ------------------------------------------------------------------------- |
+| **Parameters** |                                                                          |
+| `type` _(str)_ | `"file"` to sanitize a file, or any other value for text sanitization    |
+| `file` _(str or None)_ | File path to sanitize (required when `type="file"`)             |
+| `text` _(str)_ | Text input to sanitize (default: `"text"`)                              |
+| **Returns**   | File path _(str)_ if file mode, sanitized text _(str)_ if text mode      |
+
+**Examples:**
+
+```python
+from Ol_Utills import security
+
+# Sanitize text input
+clean = security.Sanitizes('text', text='Hello <script>alert("xss")</script> World')
+print(clean)  # "Hello alert("xss") World"
+
+# Sanitize a file in-place
+security.Sanitizes('file', file='user_upload.csv')
+# Removes all HTML tags from the file content and rewrites it
+```
+
+---
+
+#### `security.hash(password)`
+
+Hashes a password using **bcrypt** with an auto-generated salt.
+
+|               | Details                                              |
+| ------------- | ---------------------------------------------------- |
+| **Parameter** | `password` _(str)_ — The plaintext password to hash  |
+| **Returns**   | `bytes` — The bcrypt hashed password                 |
+| **Requires**  | `bcrypt` package (`pip install bcrypt`)               |
+
+**Example:**
+
+```python
+from Ol_Utills import security
+
+hashed = security.hash("MySecureP@ss1")
+print(hashed)  # b'$2b$12$...'
+
+# Store `hashed` in your database
+```
+
+---
+
+#### `security.verify(password, hashed)`
+
+Verifies a plaintext password against a bcrypt hash.
+
+|               | Details                                                     |
+| ------------- | ----------------------------------------------------------- |
+| **Parameters** | `password` _(str)_ — The plaintext password to check       |
+|               | `hashed` _(bytes)_ — The bcrypt hash to compare against     |
+| **Returns**   | `True` if the password matches, `False` otherwise            |
+| **Requires**  | `bcrypt` package (`pip install bcrypt`)                      |
+
+**Example:**
+
+```python
+from Ol_Utills import security
+
+hashed = security.hash("MySecureP@ss1")
+
+# ✅ Correct password
+security.verify("MySecureP@ss1", hashed)    # True
+
+# ❌ Wrong password
+security.verify("WrongPassword1", hashed)   # False
+```
+
+**Full Registration/Login Flow:**
+
+```python
+from flask import Flask, request, jsonify
+from Ol_Utills import security, Connections, val
+
+app = Flask(__name__)
+conn, db = Connections.sqlite("app.db")
+
+@app.route('/register', methods=['POST'])
+def register():
+    password = request.form.get('password')
+
+    if not val.chk_p(password):
+        return jsonify({"error": "Weak password"}), 400
+
+    hashed = security.hash(password)
+    db.execute("INSERT INTO users (password) VALUES (?)", (hashed,))
+    conn.commit()
+    return jsonify({"message": "Registered"}), 201
+
+@app.route('/login', methods=['POST'])
+def login():
+    password = request.form.get('password')
+    db.execute("SELECT password FROM users WHERE id = 1")
+    stored_hash = db.fetchone()[0]
+
+    if security.verify(password, stored_hash):
+        return jsonify({"message": "Login successful"})
+    return jsonify({"error": "Invalid credentials"}), 401
+```
 
 ---
 
@@ -583,29 +847,39 @@ sequenceDiagram
     participant C as 🌐 Client
     participant F as 🐍 Flask App
     participant V as 🔒 val
-    participant D as 🗄️ database
+    participant D as 🗄️ Connections
     participant S as 🛡️ session
+    participant R as 🔴 Redis
+    participant B as 🔐 bcrypt
 
-    Note over C,S: Registration Flow
+    Note over C,B: Registration Flow
     C->>F: POST /register
     F->>V: val.chk_e(email)
     V-->>F: True / None
     F->>V: val.chk_p(password)
     V-->>F: True / None
-    F->>D: database.sqlite("app.db")
-    D-->>F: cursor
+    F->>B: security.hash(password)
+    B-->>F: hashed password
+    F->>D: Connections.sqlite("app.db")
+    D-->>F: (conn, cursor)
     F->>D: INSERT INTO users
     F-->>C: 201 Created
 
-    Note over C,S: Login Flow
+    Note over C,B: Login Flow
     C->>F: POST /login
+    F->>R: rate_limit check
+    R-->>F: allowed ✅
     F->>D: SELECT FROM users
     D-->>F: user record
+    F->>B: security.verify(password, hash)
+    B-->>F: True ✅
     F->>S: session["logged"] = True
     F-->>C: Login successful
 
-    Note over C,S: Protected Route
+    Note over C,B: Protected Route
     C->>F: GET /dashboard
+    F->>R: rate_limit check
+    R-->>F: allowed ✅
     F->>S: Check session["logged"]
     S-->>F: True ✅
     F-->>C: Dashboard data
@@ -613,23 +887,23 @@ sequenceDiagram
 
 ```python
 from flask import Flask, session, request, jsonify
-from Ol_Utills import val, req, database
+from Ol_Utills import val, req, res, Connections, security
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
 
 # Initialize database
-db = database.sqlite("app.db")
+conn, db = Connections.sqlite("app.db")
 db.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         email TEXT,
-        password TEXT,
+        password BLOB,
         is_admin BOOLEAN DEFAULT 0
     )
 """)
-db.connection.commit()
+conn.commit()
 
 
 @app.route('/register', methods=['POST'])
@@ -640,54 +914,53 @@ def register():
 
     # Validate email
     if not val.chk_e(email):
-        return jsonify({"error": "Invalid email format"}), 400
+        return res.error_response("Invalid email format", 400)
 
     # Validate password strength
     if not val.chk_p(password):
-        return jsonify({
-            "error": "Password must be 7+ chars with uppercase, lowercase, and a digit"
-        }), 400
+        return res.error_response(
+            "Password must be 7+ chars with uppercase, lowercase, and a digit", 400
+        )
+
+    # Hash password before storing
+    hashed = security.hash(password)
 
     # Insert user into database
-    db = database.sqlite("app.db")
     try:
         db.execute(
             "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
-            (username, email, password)
+            (username, email, hashed)
         )
-        db.connection.commit()
+        conn.commit()
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return res.error_response(str(e), 500)
 
-    return jsonify({"message": "User registered successfully"}), 201
+    return res.success_response({"message": "User registered successfully"})
 
 
 @app.route('/login', methods=['POST'])
+@security.rate_limit(max_requests=10, window_seconds=60)
 def login():
     username = request.form.get('username')
     password = request.form.get('password')
 
-    db = database.sqlite("app.db")
-    db.execute(
-        "SELECT * FROM users WHERE username = ? AND password = ?",
-        (username, password)
-    )
+    db.execute("SELECT * FROM users WHERE username = ?", (username,))
     user = db.fetchone()
 
-    if user:
+    if user and security.verify(password, user[3]):
         session['logged'] = True
         session['username'] = username
         if user[4]:  # is_admin column
             session['admin'] = True
-        return jsonify({"message": "Login successful"})
+        return res.success_response({"message": "Login successful"})
 
-    return jsonify({"error": "Invalid credentials"}), 401
+    return res.error_response("Invalid credentials", 401)
 
 
 @app.route('/dashboard')
 @req.login_required
 def dashboard():
-    return jsonify({
+    return res.success_response({
         "message": f"Welcome, {session.get('username')}!",
         "role": "admin" if session.get('admin') else "user"
     })
@@ -696,16 +969,15 @@ def dashboard():
 @app.route('/admin/panel')
 @req.admin_required
 def admin_panel():
-    db = database.sqlite("app.db")
     db.execute("SELECT id, username, email FROM users")
     users = db.fetchall()
-    return jsonify({"users": users})
+    return res.success_response({"users": users})
 
 
 @app.route('/logout')
 def logout():
     session.clear()
-    return jsonify({"message": "Logged out"})
+    return res.success_response({"message": "Logged out"})
 
 
 if __name__ == '__main__':

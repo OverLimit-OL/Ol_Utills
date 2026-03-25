@@ -61,15 +61,15 @@ graph LR
 ## 📦 Installation
 
 ```bash
-pip install ol-utills
+pip install ol-utills flask
 ```
 
 ### Requirements
 
-| Dependency | Purpose |
-|---|---|
-| `flask` | Session management & JSON responses |
-| `psycopg2` | PostgreSQL connectivity |
+| Dependency | Purpose                             |
+| ---------- | ----------------------------------- |
+| `flask`    | Session management & JSON responses |
+| `psycopg2` | PostgreSQL connectivity             |
 
 > **Note:** `sqlite3` and `re` are part of the Python standard library and do not need to be installed.
 
@@ -134,14 +134,15 @@ flowchart LR
 
 Validates password strength against a robust regex pattern.
 
-| | Details |
-|---|---|
-| **Parameter** | `password` *(str)* — The password string to validate |
-| **Returns** | `True` if valid, `None` if invalid |
+|               | Details                                              |
+| ------------- | ---------------------------------------------------- |
+| **Parameter** | `password` _(str)_ — The password string to validate |
+| **Returns**   | `True` if valid, `None` if invalid                   |
 
 **Password Rules:**
 
 The password must satisfy **all** of the following criteria:
+
 - ✅ Minimum **7 characters** long (6 + 1 trailing non-whitespace)
 - ✅ At least **1 uppercase** letter (`A-Z`)
 - ✅ At least **1 lowercase** letter (`a-z`)
@@ -180,12 +181,12 @@ app = Flask(__name__)
 @app.route('/register', methods=['POST'])
 def register():
     password = request.form.get('password')
-    
+
     if not val.chk_p(password):
         return jsonify({
             "error": "Password must be 7+ chars with at least 1 uppercase, 1 lowercase, and 1 digit."
         }), 400
-    
+
     # Proceed with registration...
     return jsonify({"message": "Registration successful"}), 201
 ```
@@ -196,10 +197,10 @@ def register():
 
 Validates an email address against the **RFC 2822** specification using a comprehensive regex pattern.
 
-| | Details |
-|---|---|
-| **Parameter** | `email` *(str)* — The email address string to validate |
-| **Returns** | `True` if valid, `None` if invalid |
+|               | Details                                                |
+| ------------- | ------------------------------------------------------ |
+| **Parameter** | `email` _(str)_ — The email address string to validate |
+| **Returns**   | `True` if valid, `None` if invalid                     |
 
 **Validation Covers:**
 
@@ -237,12 +238,13 @@ val.chk_e("")                           # None — empty string
 
 Validates international phone numbers.
 
-| | Details |
-|---|---|
-| **Parameter** | `phone` *(str)* — The phone number string to validate |
-| **Returns** | `True` if valid, `None` if invalid |
+|               | Details                                               |
+| ------------- | ----------------------------------------------------- |
+| **Parameter** | `phone` _(str)_ — The phone number string to validate |
+| **Returns**   | `True` if valid, `None` if invalid                    |
 
 **Supported Formats:**
+
 - ✅ International: `+1-555-555-5555`
 - ✅ With parentheses: `(555) 555-5555`
 - ✅ With dots: `555.555.5555`
@@ -271,13 +273,13 @@ The `req` class provides Flask route decorators for session-based authentication
 flowchart TD
     A["🌐 Client Request"] --> B["Flask Route"]
     B --> C{"Decorator Check"}
-    
+
     C -->|"@login_required"| D{"session logged == True?"}
     C -->|"@admin_required"| E{"session admin == True?"}
-    
+
     D -->|"✅ Yes"| F["✅ Execute View Function"]
     D -->|"❌ No"| G["🚫 Return empty jsonify response"]
-    
+
     E -->|"✅ Yes"| F
     E -->|"❌ No"| G
 
@@ -296,12 +298,12 @@ flowchart TD
 
 Restricts a Flask route to authenticated (logged-in) users only.
 
-| | Details |
-|---|---|
-| **Session Key** | `session['logged']` |
-| **Required Value** | `True` (boolean) |
-| **On Success** | Executes the decorated view function normally |
-| **On Failure** | Returns an empty JSON response via `jsonify()` |
+|                    | Details                                        |
+| ------------------ | ---------------------------------------------- |
+| **Session Key**    | `session['logged']`                            |
+| **Required Value** | `True` (boolean)                               |
+| **On Success**     | Executes the decorated view function normally  |
+| **On Failure**     | Returns an empty JSON response via `jsonify()` |
 
 **Prerequisites:**
 
@@ -321,9 +323,9 @@ app.secret_key = 'your-secret-key'
 def login():
     username = request.form.get('username')
     password = request.form.get('password')
-    
+
     # ... verify credentials against database ...
-    
+
     session['logged'] = True         # ← Required for @login_required
     session['username'] = username   # ← Optional: store user info
     return jsonify({"message": "Logged in successfully"})
@@ -343,11 +345,11 @@ def logout():
 
 **Behavior:**
 
-| Scenario | `session['logged']` | Result |
-|---|---|---|
-| User is logged in | `True` | View function runs normally |
-| User is not logged in | Missing or `False` | Returns empty `jsonify()` response |
-| Session expired | Missing | Returns empty `jsonify()` response |
+| Scenario              | `session['logged']` | Result                             |
+| --------------------- | ------------------- | ---------------------------------- |
+| User is logged in     | `True`              | View function runs normally        |
+| User is not logged in | Missing or `False`  | Returns empty `jsonify()` response |
+| Session expired       | Missing             | Returns empty `jsonify()` response |
 
 ---
 
@@ -355,12 +357,12 @@ def logout():
 
 Restricts a Flask route to admin users only. Works the same as `@login_required` but checks a different session key.
 
-| | Details |
-|---|---|
-| **Session Key** | `session['admin']` |
-| **Required Value** | `True` (boolean) |
-| **On Success** | Executes the decorated view function normally |
-| **On Failure** | Returns an empty JSON response via `jsonify()` |
+|                    | Details                                        |
+| ------------------ | ---------------------------------------------- |
+| **Session Key**    | `session['admin']`                             |
+| **Required Value** | `True` (boolean)                               |
+| **On Success**     | Executes the decorated view function normally  |
+| **On Failure**     | Returns an empty JSON response via `jsonify()` |
 
 **Example:**
 
@@ -369,7 +371,7 @@ Restricts a Flask route to admin users only. Works the same as `@login_required`
 @app.route('/admin/login', methods=['POST'])
 def admin_login():
     # ... verify admin credentials ...
-    
+
     session['logged'] = True    # for general auth
     session['admin'] = True     # ← Required for @admin_required
     return jsonify({"message": "Admin logged in"})
@@ -403,10 +405,10 @@ def admin_settings():
 
 The `res` class will provide utilities for building standardized JSON API responses.
 
-| Method | Description | Status |
-|---|---|---|
-| `res.success_response(data)` | Returns a standardized success JSON response | 🔜 Planned |
-| `res.error_response(message, code)` | Returns a standardized error JSON response | 🔜 Planned |
+| Method                              | Description                                  | Status     |
+| ----------------------------------- | -------------------------------------------- | ---------- |
+| `res.success_response(data)`        | Returns a standardized success JSON response | 🔜 Planned |
+| `res.error_response(message, code)` | Returns a standardized error JSON response   | 🔜 Planned |
 
 **Planned usage:**
 
@@ -455,10 +457,10 @@ flowchart LR
 
 Opens a connection to a **SQLite** database file and returns a cursor.
 
-| | Details |
-|---|---|
-| **Parameter** | `database` *(str)* — Path to the SQLite database file. If the file doesn't exist, SQLite will create it automatically. |
-| **Returns** | `sqlite3.Cursor` — A cursor object for executing SQL queries |
+|               | Details                                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Parameter** | `database` _(str)_ — Path to the SQLite database file. If the file doesn't exist, SQLite will create it automatically. |
+| **Returns**   | `sqlite3.Cursor` — A cursor object for executing SQL queries                                                           |
 
 **Examples:**
 
@@ -522,15 +524,15 @@ def list_users():
 
 Opens a connection to a **PostgreSQL** database and returns a cursor.
 
-| | Details |
-|---|---|
-| **Parameters** | |
-| `database` *(str)* | Name of the PostgreSQL database |
-| `user` *(str)* | Database username |
-| `password` *(str)* | Database password |
-| `host` *(str)* | Database host address (e.g. `"localhost"`, `"db.example.com"`) |
-| **Returns** | `psycopg2.cursor` — A cursor object for executing SQL queries |
-| **Requires** | `psycopg2` package (`pip install psycopg2-binary`) |
+|                    | Details                                                        |
+| ------------------ | -------------------------------------------------------------- |
+| **Parameters**     |                                                                |
+| `database` _(str)_ | Name of the PostgreSQL database                                |
+| `user` _(str)_     | Database username                                              |
+| `password` _(str)_ | Database password                                              |
+| `host` _(str)_     | Database host address (e.g. `"localhost"`, `"db.example.com"`) |
+| **Returns**        | `psycopg2.cursor` — A cursor object for executing SQL queries  |
+| **Requires**       | `psycopg2` package (`pip install psycopg2-binary`)             |
 
 **Examples:**
 

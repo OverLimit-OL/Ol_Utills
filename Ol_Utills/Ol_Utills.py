@@ -39,12 +39,11 @@ class val:
 
 class res:
     # Standardized response format for API responses
-
     def success_response(data):
-        pass
+        return jsonify({'data': data}), 200
 
     def error_response(message, code):
-        pass
+        return jsonify({'error': message}), code
 
 class Connections:
 
@@ -94,9 +93,21 @@ class req:
             if session.get('logged') == True:
                 return f(*args, **kwargs)
             else:
-                return jsonify('Unauthorized'), 401
+                return jsonify({'error': 'Unauthorized'}), 401
         return wrapper
     
+    @staticmethod
+    def admin_required(f):
+        # Decorator to check if the user is an admin before allowing access to a route
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if session.get('admin') == True:
+                return f(*args, **kwargs)
+            else:
+                return  jsonify({'error': 'Unauthorized'}), 401
+        return wrapper
+
+class security:
     @staticmethod
     def rate_limit(max_requests=20, window_seconds=60, r=None):
         # Add Rate Limit to the app useing Redis
@@ -124,14 +135,32 @@ class req:
                 return f(*args, **kwargs)
             return wrapper
         return decorator
+
+    @staticmethod
+    def Sanitizes(type, file=None, text='text'):
+        # Sanitizes a CSV file by removing potentially harmful characters
+        if type == 'file':
+            with open(file, 'r') as f:
+                data = f.read()
+                print(data)
+            safe_data = re.sub(r'<[^>]*?>', '', data)
+            with open(file,'w') as f:
+                f.write(safe_data)
+            return file
+        else:
+            # Sanitizes an input file by removing potentially harmful characters
+            safe_input = re.sub(r'<[^>]*?>', '', text)
+            return safe_input
     
     @staticmethod
-    def admin_required(f):
-        # Decorator to check if the user is an admin before allowing access to a route
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            if session.get('admin') == True:
-                return f(*args, **kwargs)
-            else:
-                return jsonify('Unauthorized'), 401
-        return wrapper
+    def hash(password):
+        # Hashes a password using a secure hashing algorithm
+        import bcrypt
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        return hashed
+    
+    @staticmethod
+    def verify(password, hashed):
+        # Verifies a password against a hashed value
+        import bcrypt
+        return bcrypt.checkpw(password.encode('utf-8'), hashed)
